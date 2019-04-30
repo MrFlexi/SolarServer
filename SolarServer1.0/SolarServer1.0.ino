@@ -5,7 +5,7 @@
 * MJRoBot.org 6Sept17
 *****************************************************/
 //Analog Input
-#define ADC1_CHANNEL_6 34 // GPIO 34
+#define ADC1_CHANNEL_6 35 // GPIO 35
 int analog_value = 0;
 
 #include <ESP32Servo.h>
