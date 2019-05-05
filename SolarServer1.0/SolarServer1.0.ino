@@ -63,6 +63,8 @@ int servoPin = 18;
 #define U8LOG_WIDTH 64
 #define U8LOG_HEIGHT 4
 
+
+
 // allocate memory
 uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 // Create a U8g2log object
