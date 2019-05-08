@@ -15,6 +15,14 @@
 #include <ESP32Servo.h>
 #include <U8g2lib.h>
 #include "SolarServer.h"
+#include <NTPClient.h>   
+#include <WiFiUdp.h>   
+
+WiFiUDP ntpUDP;
+
+
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200);      // 7200 = + 2h
+
 
 
 #define mqtt_off
@@ -37,8 +45,9 @@ const char* mqtt_topic = "mrflexi/solarserver/";
 DynamicJsonDocument doc(1024);
 char msg[200];
 
-#ifdef mqtt_on
 WiFiClient espClient;
+
+#ifdef mqtt_on
 PubSubClient client(espClient);
 long lastMsgAlive = 0;
 long lastMsgDist = 0;
@@ -75,16 +84,6 @@ uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 // Create a U8g2log object
 U8G2LOG u8g2log;
 
-//--------------------------------------------------------------------------
-// ADC Setup
-//--------------------------------------------------------------------------
-
-int mVperAmp = 185;
-int RawValue = 0;
-int ACSoffset = 2.5;
-double Voltage = 0;
-double Amps = 0;
-
 
 void log_display( String s)
   {
@@ -93,7 +92,7 @@ void log_display( String s)
     Serial.println(s);
   }
 
-#ifdef mqtt_on
+
 
 void setup_wifi() {
   // We start by connecting to a WiFi network  
@@ -111,7 +110,12 @@ void setup_wifi() {
   log_display("WiFi connected");
   log_display("IP address: ");
   log_display(String(WiFi.localIP()));
+
+  timeClient.begin();
+
 }
+
+#ifdef mqtt_on
 
 void callback(char* mqtt_topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
@@ -231,27 +235,6 @@ int get_max_insolation_angle( void )
   return max_angle;
 }
 
-void Calcula_corrente()
-{
-  //RawValue = analogRead(ADC1_CHANNEL_6);
-  Voltage = RawValue * ( 3.3 / 4095.0);
-
-  Amps = ((Voltage - ACSoffset) / mVperAmp);
-
-  Serial.printf("%4d\ %4.2f\ %4.2f\n", RawValue, Voltage, Amps);
-
-}
-
-
-
-
-
-double GetVoltage(double reading) {
-  // Reference voltage is 3v3 so maximum reading is 3v3 = 4095 in range 0 to 4095
-  if (reading < 1 || reading > 4095) return 0;
-  // return -0.000000000009824 * pow(reading,3) + 0.000000016557283 * pow(reading,2) + 0.000854596860691 * reading + 0.065440348345433;
-  return (-0.000000000000016 * pow(reading, 4) + 0.000000000118171 * pow(reading, 3) - 0.000000301211691 * pow(reading, 2) + 0.001109019271794 * reading + 0.034143524634089) + 0.15;
-}
 
 
 
@@ -270,8 +253,9 @@ void setup()
   Serial.begin(115200);
   setup_display();
 
-#ifdef mqtt_on
-  setup_wifi();
+setup_wifi();
+
+#ifdef mqtt_on  
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 #endif  
@@ -283,6 +267,9 @@ void setup()
   u8g2log.print("SolarServer"); u8g2log.print("\n");
   u8g2log.print("Seeking best pos"); u8g2log.print("\n");
   draw("What a beautiful day!", SUN, 27);
+
+ 
+
 
 
 }
@@ -322,7 +309,11 @@ void loop()
     //Calcula_corrente();
   }
 
-  draw("LoopNr:", SUN, i);
+
+  timeClient.update();
+  Serial.println(timeClient.getFormattedTime());  
+  
+  draw( timeClient.getFormattedTime().c_str() , SUN, i);
   i++;
 
 
