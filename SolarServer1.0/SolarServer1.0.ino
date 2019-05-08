@@ -1,3 +1,5 @@
+
+
 /******************************************************
   Solar Server 1.0
   Analog Input:
@@ -24,9 +26,10 @@ char msg[200];
 #include <U8g2lib.h>
 #include <Wire.h>
 
-#include <ArduinoJson.h>
-// Json
-StaticJsonBuffer<200> jsonBuffer;
+#include <ArduinoJson.h>    // https://github.com/bblanchon/ArduinoJson
+
+
+DynamicJsonDocument doc(1024);
 
 
 WiFiClient espClient;
@@ -37,13 +40,13 @@ long lastMsgDist = 0;
 #include <ESP32analogReadNonBlocking.h>
 
 
-ESP32analogReadNonBlocking ADC_pin25(25, 100000);     // Solar Panel
-ESP32analogReadNonBlocking ADC_pin26(26, 100000);
+ESP32analogReadNonBlocking ADC_pin32(32, 100000);     // Solar Panel
+ESP32analogReadNonBlocking ADC_pin33(33, 100000);
 
 
 
 uint8_t ArbitrationToken1; //Use one Aribtration Token for anything on ADC1, GPIO: 34, 35, 36, 37, 38, 39ADC_
-uint8_t ArbitrationToken2; //Use one Arbitration Token for anything on ADC2, GPIO: 4, 12, 13, 14, 15, 25, 26, 27
+uint8_t ArbitrationToken2; //Use one Arbitration Token for anything on ADC2, GPIO: 4, 12, 13, 14, 15, 25, 26, 27   // do not use when WIFI is enabled
 
 uint32_t loopcounter;//loop counter for example to show that the code is non-blocking
 uint32_t loopcounterSerialPrintTimer;
@@ -75,23 +78,30 @@ double Voltage = 0;
 double Amps = 0;
 
 
+void log_display( String s)
+  {
+    u8g2log.print(s);
+    u8g2log.print("\n");
+    Serial.println(s);
+  }
+
+
 void setup_wifi() {
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+  // We start by connecting to a WiFi network  
+  log_display("Connecting to ");
+  log_display(ssid);
 
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    log_display(".");
   }
 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  log_display("");
+  log_display("WiFi connected");
+  log_display("IP address: ");
+  log_display(String(WiFi.localIP()));
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -204,17 +214,20 @@ void Calcula_corrente()
 
 void mqtt_send_position(int voltage, int angle)
 {
-  JsonObject& root = jsonBuffer.createObject();
-  root["sensor"]            = "panel";
-  root["angle"]             = String(angle);
-  root["value"]             = String(voltage);
+    
+  doc["sensor"]            = "panel";
+  doc["angle"]             = String(angle);
+  doc["value"]             = String(voltage);
 
+  JsonArray data = doc.createNestedArray("data");
+  data.add(48.756080);
+  data.add(2.302038);
 
-  root.printTo(msg);                  // JSON Object to string
+  serializeJson(doc, msg);
+
   client.publish("mrflexi/solarserver/all", msg );
   Serial.print("Publish message: ");
   Serial.println(msg);
-  jsonBuffer.clear();
 
 }
 
@@ -267,22 +280,22 @@ void loop()
 
 
   // ADC Ports
-  ADC_pin25.tick(ArbitrationToken1);
-  ADC_pin26.tick(ArbitrationToken2);
+  ADC_pin32.tick(ArbitrationToken1);
+  ADC_pin33.tick(ArbitrationToken1);
 
 
 
-  if (ADC_pin25.newValueFlag) {
+  if (ADC_pin32.newValueFlag) {
     Serial.print("GPIO25 raw counts = ");
-    Serial.print(ADC_pin25.counts);
-    Voltage = ADC_pin25.counts * ( 3.3 / 4095.0);
+    Serial.print(ADC_pin32.counts);
+    Voltage = ADC_pin32.counts * ( 3.3 / 4095.0);
     Serial.print(" Voltage: ");
     Serial.print(Voltage);
     Serial.print(" Voltage new: ");
-    Voltage =  GetVoltage(ADC_pin25.counts);
+    Voltage =  GetVoltage(ADC_pin32.counts);
     Serial.println(Voltage);
-    u8g2log.print("Raw ADC0:"); u8g2log.print(ADC_pin25.counts); u8g2log.print("\n");
-    u8g2log.print("Raw ADC1:"); u8g2log.print(ADC_pin26.counts); u8g2log.print("\n");
+    u8g2log.print("Raw ADC0:"); u8g2log.print(ADC_pin32.counts); u8g2log.print("\n");
+    u8g2log.print("Raw ADC1:"); u8g2log.print(ADC_pin33.counts); u8g2log.print("\n");
     u8g2log.print("Voltage:"); u8g2log.print(Voltage); u8g2log.print("\n");
     //Calcula_corrente();
   }
