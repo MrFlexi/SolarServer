@@ -6,12 +6,13 @@
 
   MJRoBot.org 6Sept17
 *****************************************************/
-int analog_value = 0;
-int ADC25 = 25;
+#include <Arduino.h>
+#include <Wire.h>
 
-#include <ESP32Servo.h>
-
-
+//--------------------------------------------------------------------------
+// Wifi Setup + MQTT 
+//--------------------------------------------------------------------------
+#include <WiFi.h>
 #include <PubSubClient.h>
 const char* ssid = "MrFlexi";
 const char* password = "Linde-123";
@@ -19,32 +20,32 @@ const char* mqtt_server = "192.168.1.144";   // Laptop
 //const char* mqtt_server = "test.mosquitto.org";   // Laptop
 
 const char* topic = "mrflexi/solarserver/";
-char msg[200];
 
-#include <WiFi.h>
-#include <Arduino.h>
-#include <U8g2lib.h>
-#include <Wire.h>
 
+
+
+//--------------------------------------------------------------------------
+// JSON Setup 
+//--------------------------------------------------------------------------
 #include <ArduinoJson.h>    // https://github.com/bblanchon/ArduinoJson
-
-
 DynamicJsonDocument doc(1024);
-
+char msg[200];
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsgAlive = 0;
 long lastMsgDist = 0;
 
+//--------------------------------------------------------------------------
+// Analog Read Setup  ADC
+//--------------------------------------------------------------------------
 #include <ESP32analogReadNonBlocking.h>
 
+int ADC25 = 25;
+int analog_value = 0;
 
 ESP32analogReadNonBlocking ADC_pin32(32, 100000);     // Solar Panel
 ESP32analogReadNonBlocking ADC_pin33(33, 100000);
-
-
-
 uint8_t ArbitrationToken1; //Use one Aribtration Token for anything on ADC1, GPIO: 34, 35, 36, 37, 38, 39ADC_
 uint8_t ArbitrationToken2; //Use one Arbitration Token for anything on ADC2, GPIO: 4, 12, 13, 14, 15, 25, 26, 27   // do not use when WIFI is enabled
 
@@ -52,24 +53,37 @@ uint32_t loopcounter;//loop counter for example to show that the code is non-blo
 uint32_t loopcounterSerialPrintTimer;
 
 
-
+//--------------------------------------------------------------------------
+// Servo Setup
+//--------------------------------------------------------------------------
+#include <ESP32Servo.h>
 Servo myservo;  // create servo object to control a servo
-
-//U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA);   // pin remapping with ESP8266 HW I2C
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA);   // ESP32 Thing, HW I2C with pin remapping
-
 int pos = 0;    // variable to store the servo position
 // Recommended PWM GPIO pins on the ESP32 include 2,4,12-19,21-23,25-27,32-33
 int servoPin = 18;
 
-// assume 4x6 font, define width and height
+
+//--------------------------------------------------------------------------
+// U8G2 Display Setup
+//--------------------------------------------------------------------------
+#include <U8g2lib.h>
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA);   // ESP32 Thing, HW I2C with pin remapping
 #define U8LOG_WIDTH 64
 #define U8LOG_HEIGHT 4
+#define SUN	0
+#define SUN_CLOUD  1
+#define CLOUD 2
+#define RAIN 3
+#define THUNDER 4
 
 // allocate memory
 uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 // Create a U8g2log object
 U8G2LOG u8g2log;
+
+//--------------------------------------------------------------------------
+// ADC Setup
+//--------------------------------------------------------------------------
 
 int mVperAmp = 185;
 int RawValue = 0;
