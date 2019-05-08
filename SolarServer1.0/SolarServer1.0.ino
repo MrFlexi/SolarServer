@@ -59,7 +59,7 @@ long lastMsgDist = 0;
 //--------------------------------------------------------------------------
 
 
-int ADC25 = 25;
+int ADC32 = 32;
 int analog_value = 0;
 
 ESP32analogReadNonBlocking ADC_pin32(32, 100000);     // Solar Panel
@@ -234,7 +234,7 @@ int get_max_insolation_angle( void )
     myservo.write(d);
     delay(5);
 
-    RawValue = analogRead(ADC25);
+    RawValue = analogRead(ADC32);
 
 
     if ( RawValue > max_value)
@@ -244,9 +244,9 @@ int get_max_insolation_angle( void )
     }
 
     u8g2log.print("Pos:"); u8g2log.print(d); u8g2log.print("\n");
-    u8g2log.print("ADC25:"); u8g2log.print(RawValue); u8g2log.print("\n");
+    u8g2log.print("ADC32:"); u8g2log.print(RawValue); u8g2log.print("\n");
     u8g2log.print("Best Pos:"); u8g2log.print(max_angle); u8g2log.print("\n");
-    u8g2log.print("Best ADC25:"); u8g2log.print(max_value); u8g2log.print("\n");
+    u8g2log.print("Best ADC32:"); u8g2log.print(max_value); u8g2log.print("\n");
 
 #ifdef mqtt_on
     mqtt_send_position(RawValue, d);
@@ -321,7 +321,7 @@ void loop()
 
 
   if (ADC_pin32.newValueFlag) {
-    Serial.print("GPIO25 raw counts = ");
+    Serial.print("GPIO32 raw counts = ");
     Serial.print(ADC_pin32.counts);
     Voltage = ADC_pin32.counts * ( 3.3 / 4095.0);
     Serial.print(" Voltage: ");
