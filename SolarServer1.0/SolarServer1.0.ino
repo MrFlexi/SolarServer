@@ -14,6 +14,10 @@
 #include <ESP32analogReadNonBlocking.h>
 #include <ESP32Servo.h>
 #include <U8g2lib.h>
+#include "SolarServer.h"
+
+
+#define mqtt_off
 
 //--------------------------------------------------------------------------
 // Wifi Setup + MQTT 
@@ -33,10 +37,12 @@ const char* mqtt_topic = "mrflexi/solarserver/";
 DynamicJsonDocument doc(1024);
 char msg[200];
 
+#ifdef mqtt_on
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsgAlive = 0;
 long lastMsgDist = 0;
+#endif
 
 //--------------------------------------------------------------------------
 // Analog Read Setup  ADC
@@ -64,22 +70,6 @@ int pos = 0;    // variable to store the servo position
 // Recommended PWM GPIO pins on the ESP32 include 2,4,12-19,21-23,25-27,32-33
 int servoPin = 18;
 
-
-//--------------------------------------------------------------------------
-// U8G2 Display Setup
-//--------------------------------------------------------------------------
-
-
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA);   // ESP32 Thing, HW I2C with pin remapping
-
-#define U8LOG_WIDTH 64
-#define U8LOG_HEIGHT 4
-#define SUN	0
-#define SUN_CLOUD  1
-#define CLOUD 2
-#define RAIN 3
-#define THUNDER 4
-
 // allocate memory
 uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 // Create a U8g2log object
@@ -103,6 +93,7 @@ void log_display( String s)
     Serial.println(s);
   }
 
+#ifdef mqtt_on
 
 void setup_wifi() {
   // We start by connecting to a WiFi network  
@@ -166,7 +157,26 @@ void reconnect() {
   }
 }
 
+void mqtt_send_position(int voltage, int angle)
+{
+    
+  doc["sensor"]            = "panel";
+  doc["angle"]             = String(angle);
+  doc["value"]             = String(voltage);
 
+  JsonArray data = doc.createNestedArray("data");
+  data.add(48.756080);
+  data.add(2.302038);
+
+  serializeJson(doc, msg);
+
+  client.publish("mrflexi/solarserver/all", msg );
+  Serial.print("Publish message: ");
+  Serial.println(msg);
+
+}
+
+#endif
 
 void setup_display(void) {
   u8g2.begin();
@@ -213,7 +223,10 @@ int get_max_insolation_angle( void )
     u8g2log.print("Best Pos:"); u8g2log.print(max_angle); u8g2log.print("\n");
     u8g2log.print("Best ADC25:"); u8g2log.print(max_value); u8g2log.print("\n");
 
+#ifdef mqtt_on
     mqtt_send_position(RawValue, d);
+#endif    
+
   }
   return max_angle;
 }
@@ -225,30 +238,12 @@ void Calcula_corrente()
 
   Amps = ((Voltage - ACSoffset) / mVperAmp);
 
-
   Serial.printf("%4d\ %4.2f\ %4.2f\n", RawValue, Voltage, Amps);
 
 }
 
 
-void mqtt_send_position(int voltage, int angle)
-{
-    
-  doc["sensor"]            = "panel";
-  doc["angle"]             = String(angle);
-  doc["value"]             = String(voltage);
 
-  JsonArray data = doc.createNestedArray("data");
-  data.add(48.756080);
-  data.add(2.302038);
-
-  serializeJson(doc, msg);
-
-  client.publish("mrflexi/solarserver/all", msg );
-  Serial.print("Publish message: ");
-  Serial.println(msg);
-
-}
 
 
 double GetVoltage(double reading) {
@@ -270,118 +265,16 @@ void find_the_sun( void )
 
 
 
-void drawWeatherSymbol(u8g2_uint_t x, u8g2_uint_t y, uint8_t symbol)
-{
-  // fonts used:
-  // u8g2_font_open_iconic_embedded_6x_t
-  // u8g2_font_open_iconic_weather_6x_t
-  // encoding values, see: https://github.com/olikraus/u8g2/wiki/fntgrpiconic
-  
-  switch(symbol)
-  {
-    case SUN:
-      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
-      u8g2.drawGlyph(x, y, 69);	
-      break;
-    case SUN_CLOUD:
-      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
-      u8g2.drawGlyph(x, y, 65);	
-      break;
-    case CLOUD:
-      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
-      u8g2.drawGlyph(x, y, 64);	
-      break;
-    case RAIN:
-      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
-      u8g2.drawGlyph(x, y, 67);	
-      break;
-    case THUNDER:
-      u8g2.setFont(u8g2_font_open_iconic_embedded_6x_t);
-      u8g2.drawGlyph(x, y, 67);
-      break;      
-  }
-}
-
-void drawWeather(uint8_t symbol, int degree)
-{
-  drawWeatherSymbol(0, 48, symbol);
-  u8g2.setFont(u8g2_font_logisoso32_tf);
-  u8g2.setCursor(48+3, 42);
-  u8g2.print(degree);
-  u8g2.print("°C");		// requires enableUTF8Print()
-}
-
-/*
-  Draw a string with specified pixel offset. 
-  The offset can be negative.
-  Limitation: The monochrome font with 8 pixel per glyph
-*/
-void drawScrollString(int16_t offset, const char *s)
-{
-  static char buf[36];	// should for screen with up to 256 pixel width 
-  size_t len;
-  size_t char_offset = 0;
-  u8g2_uint_t dx = 0;
-  size_t visible = 0;
-  len = strlen(s);
-  if ( offset < 0 )
-  {
-    char_offset = (-offset)/8;
-    dx = offset + char_offset*8;
-    if ( char_offset >= u8g2.getDisplayWidth()/8 )
-      return;
-    visible = u8g2.getDisplayWidth()/8-char_offset+1;
-    strncpy(buf, s, visible);
-    buf[visible] = '\0';
-    u8g2.setFont(u8g2_font_8x13_mf);
-    u8g2.drawStr(char_offset*8-dx, 62, buf);
-  }
-  else
-  {
-    char_offset = offset / 8;
-    if ( char_offset >= len )
-      return;	// nothing visible
-    dx = offset - char_offset*8;
-    visible = len - char_offset;
-    if ( visible > u8g2.getDisplayWidth()/8+1 )
-      visible = u8g2.getDisplayWidth()/8+1;
-    strncpy(buf, s+char_offset, visible);
-    buf[visible] = '\0';
-    u8g2.setFont(u8g2_font_8x13_mf);
-    u8g2.drawStr(-dx, 62, buf);
-  }
-  
-}
-
-void draw(const char *s, uint8_t symbol, int degree)
-{
-  int16_t offset = -(int16_t)u8g2.getDisplayWidth();
-  int16_t len = strlen(s);
-  for(;;)
-  {
-    u8g2.firstPage();
-    do {
-      drawWeather(symbol, degree);
-      drawScrollString(offset, s);
-    } while ( u8g2.nextPage() );
-    delay(20);
-    offset+=2;
-    if ( offset > len*8+1 )
-      break;
-  }
-}
-
-
-
-
 void setup()
 {
   Serial.begin(115200);
   setup_display();
 
+#ifdef mqtt_on
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+#endif  
 
   myservo.setPeriodHertz(50);    // standard 50 hz servo
   myservo.attach(servoPin, 1000, 2000);
@@ -394,15 +287,18 @@ void setup()
 
 }
 
+int i = 0;
+
 void loop()
 {
 
-
+#ifdef mqtt_on
   // MQTT Connection
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
+#endif  
 
 
   // ADC Ports
@@ -426,11 +322,8 @@ void loop()
     //Calcula_corrente();
   }
 
-
-
-
-
-
+  draw("LoopNr:", SUN, i);
+  i++;
 
 
 }
