@@ -6,6 +6,7 @@
 
   MJRoBot.org 6Sept17
 *****************************************************/
+#include <SolarServer.h>
 #include <Arduino.h>
 #include <Wire.h>
 
@@ -19,10 +20,7 @@ const char* password = "Linde-123";
 const char* mqtt_server = "192.168.1.144";   // Laptop
 //const char* mqtt_server = "test.mosquitto.org";   // Laptop
 
-const char* topic = "mrflexi/solarserver/";
-
-
-
+const char* mqtt_topic = "mrflexi/solarserver/";
 
 //--------------------------------------------------------------------------
 // JSON Setup 
@@ -118,11 +116,11 @@ void setup_wifi() {
   log_display(String(WiFi.localIP()));
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char* mqtt_topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
 
-  u8g2log.print(topic); u8g2log.print("\n");
-  Serial.print(topic);
+  u8g2log.print(mqtt_topic); u8g2log.print("\n");
+  Serial.print(mqtt_topic);
   Serial.print("] ");
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
@@ -149,7 +147,7 @@ void reconnect() {
     if (client.connect("ESP8266Client")) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish(topic, "connected");
+      client.publish(mqtt_topic, "connected");
       // ... and resubscribe
       client.subscribe("mrflexi/solarserver/#");
     } else {
@@ -265,6 +263,7 @@ void find_the_sun( void )
 
 void setup()
 {
+  test();
   Serial.begin(115200);
   setup_display();
 
