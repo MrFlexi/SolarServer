@@ -18,12 +18,13 @@
 #include <NTPClient.h>   
 #include <WiFiUdp.h>   
 
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP  60  
+
 WiFiUDP ntpUDP;
 
 
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200);      // 7200 = + 2h
-
-
 
 #define mqtt_off
 
@@ -83,6 +84,26 @@ int servoPin = 18;
 uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 // Create a U8g2log object
 U8G2LOG u8g2log;
+
+
+
+void print_wakeup_reason(){
+  esp_sleep_wakeup_cause_t wakeup_reason;
+
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+
+  switch(wakeup_reason)
+  {
+    case ESP_SLEEP_WAKEUP_EXT0 : Serial.println("Wakeup caused by external signal using RTC_IO"); break;
+    case ESP_SLEEP_WAKEUP_EXT1 : Serial.println("Wakeup caused by external signal using RTC_CNTL"); break;
+    case ESP_SLEEP_WAKEUP_TIMER : Serial.println("Wakeup caused by timer"); break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD : Serial.println("Wakeup caused by touchpad"); break;
+    case ESP_SLEEP_WAKEUP_ULP : Serial.println("Wakeup caused by ULP program"); break;
+    default : Serial.printf("Wakeup was not caused by deep sleep: %d\n",wakeup_reason); break;
+  }
+}
+
+
 
 
 void log_display( String s)
@@ -251,6 +272,14 @@ void find_the_sun( void )
 void setup()
 {
   Serial.begin(115200);
+  
+  print_wakeup_reason();
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) +
+  " Seconds");
+
+
+
   setup_display();
 
 setup_wifi();
@@ -267,9 +296,6 @@ setup_wifi();
   u8g2log.print("SolarServer"); u8g2log.print("\n");
   u8g2log.print("Seeking best pos"); u8g2log.print("\n");
   draw("What a beautiful day!", SUN, 27);
-
- 
-
 
 
 }
@@ -315,6 +341,15 @@ void loop()
   
   draw( timeClient.getFormattedTime().c_str() , SUN, i);
   i++;
+
+  if ( i > 5) 
+  {
+    Serial.println("Going to sleep now");
+    delay(1000);
+    Serial.flush(); 
+    esp_deep_sleep_start();
+    Serial.println("This will never be printed");
+  }
 
 
 }
