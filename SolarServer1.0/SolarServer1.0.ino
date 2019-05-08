@@ -6,15 +6,19 @@
 
   MJRoBot.org 6Sept17
 *****************************************************/
-#include <SolarServer.h>
 #include <Arduino.h>
 #include <Wire.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>    // https://github.com/bblanchon/ArduinoJson
+#include <ESP32analogReadNonBlocking.h>
+#include <ESP32Servo.h>
+#include <U8g2lib.h>
 
 //--------------------------------------------------------------------------
 // Wifi Setup + MQTT 
 //--------------------------------------------------------------------------
-#include <WiFi.h>
-#include <PubSubClient.h>
+
 const char* ssid = "MrFlexi";
 const char* password = "Linde-123";
 const char* mqtt_server = "192.168.1.144";   // Laptop
@@ -25,7 +29,7 @@ const char* mqtt_topic = "mrflexi/solarserver/";
 //--------------------------------------------------------------------------
 // JSON Setup 
 //--------------------------------------------------------------------------
-#include <ArduinoJson.h>    // https://github.com/bblanchon/ArduinoJson
+
 DynamicJsonDocument doc(1024);
 char msg[200];
 
@@ -37,7 +41,7 @@ long lastMsgDist = 0;
 //--------------------------------------------------------------------------
 // Analog Read Setup  ADC
 //--------------------------------------------------------------------------
-#include <ESP32analogReadNonBlocking.h>
+
 
 int ADC25 = 25;
 int analog_value = 0;
@@ -54,7 +58,7 @@ uint32_t loopcounterSerialPrintTimer;
 //--------------------------------------------------------------------------
 // Servo Setup
 //--------------------------------------------------------------------------
-#include <ESP32Servo.h>
+
 Servo myservo;  // create servo object to control a servo
 int pos = 0;    // variable to store the servo position
 // Recommended PWM GPIO pins on the ESP32 include 2,4,12-19,21-23,25-27,32-33
@@ -64,8 +68,10 @@ int servoPin = 18;
 //--------------------------------------------------------------------------
 // U8G2 Display Setup
 //--------------------------------------------------------------------------
-#include <U8g2lib.h>
+
+
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA);   // ESP32 Thing, HW I2C with pin remapping
+
 #define U8LOG_WIDTH 64
 #define U8LOG_HEIGHT 4
 #define SUN	0
@@ -173,6 +179,7 @@ void setup_display(void) {
   u8g2.setFont( u8g2_font_6x12_tr);  // set the font for the terminal window
   u8g2log.print("Solar Server...");
   u8g2log.print("\n");
+  u8g2.enableUTF8Print();
 }
 
 
@@ -261,9 +268,114 @@ void find_the_sun( void )
   myservo.write(best_angle);
 }
 
+
+
+void drawWeatherSymbol(u8g2_uint_t x, u8g2_uint_t y, uint8_t symbol)
+{
+  // fonts used:
+  // u8g2_font_open_iconic_embedded_6x_t
+  // u8g2_font_open_iconic_weather_6x_t
+  // encoding values, see: https://github.com/olikraus/u8g2/wiki/fntgrpiconic
+  
+  switch(symbol)
+  {
+    case SUN:
+      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
+      u8g2.drawGlyph(x, y, 69);	
+      break;
+    case SUN_CLOUD:
+      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
+      u8g2.drawGlyph(x, y, 65);	
+      break;
+    case CLOUD:
+      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
+      u8g2.drawGlyph(x, y, 64);	
+      break;
+    case RAIN:
+      u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
+      u8g2.drawGlyph(x, y, 67);	
+      break;
+    case THUNDER:
+      u8g2.setFont(u8g2_font_open_iconic_embedded_6x_t);
+      u8g2.drawGlyph(x, y, 67);
+      break;      
+  }
+}
+
+void drawWeather(uint8_t symbol, int degree)
+{
+  drawWeatherSymbol(0, 48, symbol);
+  u8g2.setFont(u8g2_font_logisoso32_tf);
+  u8g2.setCursor(48+3, 42);
+  u8g2.print(degree);
+  u8g2.print("°C");		// requires enableUTF8Print()
+}
+
+/*
+  Draw a string with specified pixel offset. 
+  The offset can be negative.
+  Limitation: The monochrome font with 8 pixel per glyph
+*/
+void drawScrollString(int16_t offset, const char *s)
+{
+  static char buf[36];	// should for screen with up to 256 pixel width 
+  size_t len;
+  size_t char_offset = 0;
+  u8g2_uint_t dx = 0;
+  size_t visible = 0;
+  len = strlen(s);
+  if ( offset < 0 )
+  {
+    char_offset = (-offset)/8;
+    dx = offset + char_offset*8;
+    if ( char_offset >= u8g2.getDisplayWidth()/8 )
+      return;
+    visible = u8g2.getDisplayWidth()/8-char_offset+1;
+    strncpy(buf, s, visible);
+    buf[visible] = '\0';
+    u8g2.setFont(u8g2_font_8x13_mf);
+    u8g2.drawStr(char_offset*8-dx, 62, buf);
+  }
+  else
+  {
+    char_offset = offset / 8;
+    if ( char_offset >= len )
+      return;	// nothing visible
+    dx = offset - char_offset*8;
+    visible = len - char_offset;
+    if ( visible > u8g2.getDisplayWidth()/8+1 )
+      visible = u8g2.getDisplayWidth()/8+1;
+    strncpy(buf, s+char_offset, visible);
+    buf[visible] = '\0';
+    u8g2.setFont(u8g2_font_8x13_mf);
+    u8g2.drawStr(-dx, 62, buf);
+  }
+  
+}
+
+void draw(const char *s, uint8_t symbol, int degree)
+{
+  int16_t offset = -(int16_t)u8g2.getDisplayWidth();
+  int16_t len = strlen(s);
+  for(;;)
+  {
+    u8g2.firstPage();
+    do {
+      drawWeather(symbol, degree);
+      drawScrollString(offset, s);
+    } while ( u8g2.nextPage() );
+    delay(20);
+    offset+=2;
+    if ( offset > len*8+1 )
+      break;
+  }
+}
+
+
+
+
 void setup()
 {
-  test();
   Serial.begin(115200);
   setup_display();
 
@@ -277,6 +389,7 @@ void setup()
 
   u8g2log.print("SolarServer"); u8g2log.print("\n");
   u8g2log.print("Seeking best pos"); u8g2log.print("\n");
+  draw("What a beautiful day!", SUN, 27);
 
 
 }
