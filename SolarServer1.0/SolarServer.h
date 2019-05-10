@@ -72,6 +72,19 @@ void drawWeather(uint8_t symbol, int degree)
   u8g2.print("°C");		// requires enableUTF8Print()
 }
 
+void drawRawValue(uint8_t symbol, int degree)
+{
+  Serial.print("drawRawValue");
+  u8g2.firstPage();
+  drawWeatherSymbol(0, 48, symbol);
+  u8g2.setFont(u8g2_font_logisoso16_tf);
+  u8g2.setCursor(48+3, 42);
+  u8g2.print(degree);
+  u8g2.print("");		// requires enableUTF8Print()
+  while ( u8g2.nextPage() );
+  delay(10);
+}
+
 /*
   Draw a string with specified pixel offset. 
   The offset can be negative.
@@ -125,7 +138,7 @@ void draw(const char *s, uint8_t symbol, int degree)
       drawWeather(symbol, degree);
       drawScrollString(offset, s);
     } while ( u8g2.nextPage() );
-    delay(20);
+    delay(10);
     offset+=2;
     if ( offset > len*8+1 )
       break;
