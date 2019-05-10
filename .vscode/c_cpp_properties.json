@@ -10,6 +10,15 @@
                 "D:/Jochen/Projekte/Arduino/Sketches/libraries/ESP32analogReadNonBlocking-master/src",
                 "D:/Jochen/Projekte/Arduino/Sketches/libraries/ESP32Servo/src",
                 "D:/Jochen/Projekte/Arduino/Sketches/libraries/PubSubClient/src"
+                "C:\\\\\\\\Users\\\\\\\\Jogi\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Arduino15\\\\\\\\packages\\\\\\\\esp32\\\\\\\\tools\\\\\\\\**",
+                "C:\\\\\\\\Users\\\\\\\\Jogi\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Arduino15\\\\\\\\packages\\\\\\\\esp32\\\\\\\\hardware\\\\\\\\esp32\\\\\\\\1.0.2\\\\\\\\**",
+                "${workspaceRoot}",
+                "C:\\\\Users\\\\ttv060\\\\AppData\\\\Local\\\\Arduino15\\\\packages\\\\esp32\\\\hardware\\\\esp32\\\\1.0.1\\\\**",
+                "C:\\\\Users\\\\ttv060\\\\AppData\\\\Local\\\\Arduino15\\\\packages\\\\esp32\\\\tools\\\\**",
+                "C:\\\\Program Files (x86)\\\\Arduino\\\\hardware\\\\tools\\\\**",
+                "C:\\\\Program Files (x86)\\\\Arduino\\\\libraries\\\\**",
+                "C:\\\\Users\\\\ttv060\\\\Documents\\\\Arduino\\\\hardware\\\\tools\\\\**",
+                "C:\\\\Users\\\\ttv060\\\\Documents\\\\Arduino\\\\libraries\\\\**"           
             ],
             "browse": {
                 "path": [
