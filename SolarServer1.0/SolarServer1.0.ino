@@ -74,6 +74,7 @@ long lastMsgDist = 0;
 
 int ADC32 = 32;
 int analog_value = 0;
+int PanelPosition = 0;
 
 ESP32analogReadNonBlocking ADC_pin32(32, 100000); // Solar Panel
 ESP32analogReadNonBlocking ADC_pin33(33, 100000);
@@ -291,12 +292,12 @@ void find_the_sun(void)
   myservo.write(0);
   delay(1000);
 
-  best_angle = get_max_insolation_angle();
+  PanelPosition = get_max_insolation_angle();
 
-  myservo.write(best_angle);
+  myservo.write(PanelPosition);
   delay(1000);
   myservo.detach();
-  Serial.println("Best Position:" + best_angle);
+  Serial.println("Best Position:" + PanelPosition);
 }
 
 void setup()
@@ -350,7 +351,16 @@ void loop()
     Voltage = GetVoltage(ADC_pin32.counts);
     Serial.println(Voltage);
     
-    drawRawValue(RAIN, ADC_pin32.counts);
+    if (ADC_pin32.counts < 2500 )
+    {
+      drawRawValue(RAIN, PanelPosition, ADC_pin32.counts );
+    }
+    else
+    {
+      drawRawValue(SUN, PanelPosition, ADC_pin32.counts );
+    }
+    
+    
   }
 
   //timeClient.update();

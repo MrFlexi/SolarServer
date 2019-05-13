@@ -72,18 +72,27 @@ void drawWeather(uint8_t symbol, int degree)
   u8g2.print("°C");		// requires enableUTF8Print()
 }
 
-void drawRawValue(uint8_t symbol, int degree)
+void drawRawValue(uint8_t symbol, int degree, int voltage)
 {
   Serial.print("drawRawValue");
   u8g2.firstPage();
   drawWeatherSymbol(0, 48, symbol);
   u8g2.setFont(u8g2_font_logisoso16_tf);
+  u8g2.setCursor(48+3, 20);
+  u8g2.print(degree);u8g2.print(" °C");
+  u8g2.print("");	
+  
   u8g2.setCursor(48+3, 42);
-  u8g2.print(degree);
-  u8g2.print("");		// requires enableUTF8Print()
+  u8g2.print(voltage);u8g2.print(" V");
+  u8g2.print("");	
+
   while ( u8g2.nextPage() );
   delay(10);
 }
+
+
+
+
 
 /*
   Draw a string with specified pixel offset. 
