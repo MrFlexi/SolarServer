@@ -22,7 +22,7 @@
 #include <NTPClient.h> // Internet Time Server
 #include <WiFiUdp.h>
 
-#ifdef mqtt_on
+#ifdef mqtt_off
 #include <PubSubClient.h>
 #endif
 
@@ -45,10 +45,11 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200); // 7200 = + 2h
 
 const char *ssid = "MrFlexi";
 const char *password = "Linde-123";
-const char *mqtt_server = "192.168.1.144"; // Laptop
-//const char* mqtt_server = "test.mosquitto.org";   // Laptop
-
+//const char *mqtt_server = "192.168.1.144"; // Laptop
+const char* mqtt_server = "test.mosquitto.org";   // Laptop
 const char *mqtt_topic = "mrflexi/solarserver/";
+
+int i = 0;
 
 //--------------------------------------------------------------------------
 // JSON Setup
@@ -59,6 +60,7 @@ char msg[200];
 String str = "";
 String str1 = "";
 String str2 = "";
+
 
 WiFiClient espClient;
 
@@ -75,6 +77,8 @@ long lastMsgDist = 0;
 int ADC32 = 32;
 int analog_value = 0;
 int PanelPosition = 0;
+
+int runmode = 0;
 
 ESP32analogReadNonBlocking ADC_pin32(32, 100000); // Solar Panel
 ESP32analogReadNonBlocking ADC_pin33(33, 100000);
@@ -94,8 +98,8 @@ int pos = 0;   // variable to store the servo position
 int servoPin = 18;
 
 // assume 4x6 font, define width and height
-#define U8LOG_WIDTH 64
-#define U8LOG_HEIGHT 4
+#define U8LOG_WIDTH 32
+#define U8LOG_HEIGHT 10
 
 // allocate memory
 uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
@@ -110,36 +114,39 @@ void print_wakeup_reason()
 
   switch (wakeup_reason)
   {
-  case ESP_SLEEP_WAKEUP_EXT0:
-    Serial.println("Wakeup caused by external signal using RTC_IO");
-    break;
-  case ESP_SLEEP_WAKEUP_EXT1:
-    Serial.println("Wakeup caused by external signal using RTC_CNTL");
-    break;
-  case ESP_SLEEP_WAKEUP_TIMER:
-    Serial.println("Wakeup caused by timer");
-    break;
-  case ESP_SLEEP_WAKEUP_TOUCHPAD:
-    Serial.println("Wakeup caused by touchpad");
-    break;
-  case ESP_SLEEP_WAKEUP_ULP:
-    Serial.println("Wakeup caused by ULP program");
-    break;
-  default:
-    Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
-    break;
+    case ESP_SLEEP_WAKEUP_EXT0:
+      Serial.println("Wakeup caused by external signal using RTC_IO");
+      break;
+    case ESP_SLEEP_WAKEUP_EXT1:
+      Serial.println("Wakeup caused by external signal using RTC_CNTL");
+      break;
+    case ESP_SLEEP_WAKEUP_TIMER:
+      Serial.println("Wakeup caused by timer");
+      break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD:
+      Serial.println("Wakeup caused by touchpad");
+      break;
+    case ESP_SLEEP_WAKEUP_ULP:
+      Serial.println("Wakeup caused by ULP program");
+      break;
+    default:
+      Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
+      break;
   }
 }
 
 void log_display(String s)
 {
-  //u8g2log.print(s);
-  //u8g2log.print("\n");
   Serial.println(s);
+  if (runmode < 1 ) {
+    u8g2log.print(s);
+    u8g2log.print("\n");
+  }
 }
 
 void setup_wifi()
 {
+
   // We start by connecting to a WiFi network
   log_display("Connecting to ");
   log_display(ssid);
@@ -149,14 +156,10 @@ void setup_wifi()
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
-    log_display(".");
+    Serial.print(".");
   }
 
-  log_display("");
-  log_display("WiFi connected");
-  log_display("IP address: ");
   log_display(String(WiFi.localIP()));
-
   timeClient.begin();
 }
 
@@ -237,12 +240,13 @@ void mqtt_send_position(int voltage, int angle)
 void setup_display(void)
 {
   u8g2.begin();
+  u8g2.setFont(u8g2_font_profont11_mf);  // set the font for the terminal window
   u8g2log.begin(u8g2, U8LOG_WIDTH, U8LOG_HEIGHT, u8log_buffer); // connect to u8g2, assign buffer
   u8g2log.setLineHeightOffset(0);                               // set extra space between lines in pixel, this can be negative
   u8g2log.setRedrawMode(0);                                     // 0: Update screen with newline, 1: Update screen for every char
-  u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
-  u8g2.drawGlyph(1, 20, 69);
   u8g2.enableUTF8Print();
+  u8g2log.print("Display loaded..."); u8g2log.print("\n");
+  u8g2log.print("Terminal mode"); u8g2log.print("\n");
 }
 
 int get_max_insolation_angle(void)
@@ -268,13 +272,13 @@ int get_max_insolation_angle(void)
     Serial.print(d);
     Serial.print("  Value: ");
     Serial.println(RawValue);
+    drawRawValue(SUN, d, RawValue );
 
 #ifdef mqtt_on
-        mqtt_send_position(RawValue, d);
+    mqtt_send_position(RawValue, d);
 #endif
   }
-  Serial.print("Best Pos: ");Serial.print(max_angle);Serial.print("  Value: ");Serial.println(max_value);
-
+  Serial.print("Best Pos: "); Serial.print(max_angle); Serial.print("  Value: "); Serial.println(max_value);
   return max_angle;
 }
 
@@ -303,26 +307,31 @@ void find_the_sun(void)
 void setup()
 {
   Serial.begin(115200);
-  delay(1000); // give me times to bring up serial monitor
+  delay(200); // give me times to bring up serial monitor
 
   print_wakeup_reason();
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) +
                  " Seconds");
 
-  setup_display();
+  setup_display();  
   setup_wifi();
-
+  
 #ifdef mqtt_on
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 #endif
 
-  draw("Where is the sun", SUN, 27);
+  // Show System Status  
+  delay(5000);
+  
+  // Start App
+  runmode = 1;
+  draw("Moving solar panel", SUN, 0);
   find_the_sun();
 }
 
-int i = 0;
+
 
 void loop()
 {
@@ -350,7 +359,7 @@ void loop()
     Serial.print(" Voltage new: ");
     Voltage = GetVoltage(ADC_pin32.counts);
     Serial.println(Voltage);
-    
+
     if (ADC_pin32.counts < 2500 )
     {
       drawRawValue(RAIN, PanelPosition, ADC_pin32.counts );
@@ -359,8 +368,8 @@ void loop()
     {
       drawRawValue(SUN, PanelPosition, ADC_pin32.counts );
     }
-    
-    
+
+
   }
 
   //timeClient.update();

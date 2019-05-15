@@ -79,7 +79,7 @@ void drawRawValue(uint8_t symbol, int degree, int voltage)
   drawWeatherSymbol(0, 48, symbol);
   u8g2.setFont(u8g2_font_logisoso16_tf);
   u8g2.setCursor(48+3, 20);
-  u8g2.print(degree);u8g2.print(" °C");
+  u8g2.print(degree);u8g2.print(" °");
   u8g2.print("");	
   
   u8g2.setCursor(48+3, 42);
@@ -88,6 +88,29 @@ void drawRawValue(uint8_t symbol, int degree, int voltage)
 
   while ( u8g2.nextPage() );
   delay(10);
+}
+
+void drawLog(String s1, String s2, String s3, String s4, String s5)
+{
+  u8g2.clearBuffer();
+  u8g2.firstPage();  
+  u8g2.setFont(u8g2_font_8x13_mf);
+  u8g2.setCursor(1, 10);
+  u8g2.print(s1);
+  u8g2.print("");  
+  u8g2.setCursor(1, 26);  
+  u8g2.print(s2);
+  u8g2.print("");
+  u8g2.setCursor(1, 40);  
+  u8g2.print(s3);
+  u8g2.print("");
+  u8g2.setCursor(1, 54);  
+  u8g2.print(s4);
+  u8g2.print("");
+  u8g2.setCursor(1, 57);
+  u8g2.print(s5);
+  u8g2.print("");
+  while ( u8g2.nextPage() );  
 }
 
 
@@ -147,7 +170,7 @@ void draw(const char *s, uint8_t symbol, int degree)
       drawWeather(symbol, degree);
       drawScrollString(offset, s);
     } while ( u8g2.nextPage() );
-    delay(10);
+    delay(5);
     offset+=2;
     if ( offset > len*8+1 )
       break;
