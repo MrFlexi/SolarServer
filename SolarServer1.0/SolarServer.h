@@ -11,6 +11,7 @@
 #define CLOUD 2
 #define RAIN 3
 #define THUNDER 4
+#define SLEEP 10
 
 
 //--------------------------------------------------------------------------
@@ -31,7 +32,7 @@ double Amps = 0;
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA);   // ESP32 Thing, HW I2C with pin remapping
 
 
-void drawWeatherSymbol(u8g2_uint_t x, u8g2_uint_t y, uint8_t symbol)
+void drawSymbol(u8g2_uint_t x, u8g2_uint_t y, uint8_t symbol)
 {
   // fonts used:
   // u8g2_font_open_iconic_embedded_6x_t
@@ -55,17 +56,21 @@ void drawWeatherSymbol(u8g2_uint_t x, u8g2_uint_t y, uint8_t symbol)
     case RAIN:
       u8g2.setFont(u8g2_font_open_iconic_weather_6x_t);
       u8g2.drawGlyph(x, y, 67);	
-      break;
+      break;    
     case THUNDER:
       u8g2.setFont(u8g2_font_open_iconic_embedded_6x_t);
       u8g2.drawGlyph(x, y, 67);
-      break;      
+      break;
+   case SLEEP:
+      u8g2.setFont( u8g2_font_open_iconic_all_8x_t);
+      u8g2.drawGlyph(x, y, 67);  
+      break;         
   }
 }
 
 void drawWeather(uint8_t symbol, int degree)
 {
-  drawWeatherSymbol(0, 48, symbol);
+  drawSymbol(0, 48, symbol);
   u8g2.setFont(u8g2_font_logisoso32_tf);
   u8g2.setCursor(48+3, 42);
   u8g2.print(degree);
@@ -76,7 +81,7 @@ void drawRawValue(uint8_t symbol, int degree, int voltage)
 {
   Serial.print("drawRawValue");
   u8g2.firstPage();
-  drawWeatherSymbol(0, 48, symbol);
+  drawSymbol(0, 48, symbol);
   u8g2.setFont(u8g2_font_logisoso16_tf);
   u8g2.setCursor(48+3, 20);
   u8g2.print(degree);u8g2.print(" °");
@@ -195,5 +200,36 @@ void Calcula_corrente()
   Serial.printf("%4d\ %4.2f\ %4.2f\n", RawValue, Voltage, Amps);
 
 }
+
+
+void print_wakeup_reason()
+{
+  esp_sleep_wakeup_cause_t wakeup_reason;
+
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+
+  switch (wakeup_reason)
+  {
+    case ESP_SLEEP_WAKEUP_EXT0:
+      Serial.println("Wakeup caused by external signal using RTC_IO");
+      break;
+    case ESP_SLEEP_WAKEUP_EXT1:
+      Serial.println("Wakeup caused by external signal using RTC_CNTL");
+      break;
+    case ESP_SLEEP_WAKEUP_TIMER:
+      Serial.println("Wakeup caused by timer");
+      break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD:
+      Serial.println("Wakeup caused by touchpad");
+      break;
+    case ESP_SLEEP_WAKEUP_ULP:
+      Serial.println("Wakeup caused by ULP program");
+      break;
+    default:
+      Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
+      break;
+  }
+}
+
 
 #endif

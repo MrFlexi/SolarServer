@@ -8,7 +8,7 @@
 *****************************************************/
 
 #define mqtt_off      // activate MQTT integration with mqtt_on
-#define ESP_SLEEP_OFF // activate low enery sleep with ESP_SLEEP_ON
+#define ESP_SLEEP_ON // activate low enery sleep with ESP_SLEEP_ON
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -21,10 +21,19 @@
 #include "SolarServer.h"
 #include <NTPClient.h> // Internet Time Server
 #include <WiFiUdp.h>
+#include <Preferences.h>
 
-#ifdef mqtt_off
+#ifdef mqtt_on
 #include <PubSubClient.h>
 #endif
+
+
+//--------------------------------------------------------------------------
+// Store preferences in NVS Flash
+//--------------------------------------------------------------------------
+Preferences preferences;
+
+char lastword[10];
 
 //--------------------------------------------------------------------------
 // ESP Sleep Mode
@@ -46,7 +55,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200); // 7200 = + 2h
 const char *ssid = "MrFlexi";
 const char *password = "Linde-123";
 //const char *mqtt_server = "192.168.1.144"; // Laptop
-const char* mqtt_server = "test.mosquitto.org";   // Laptop
+const char* mqtt_server = "broker.hivemq.com";   // Laptop
 const char *mqtt_topic = "mrflexi/solarserver/";
 
 int i = 0;
@@ -106,34 +115,7 @@ uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 // Create a U8g2log object
 U8G2LOG u8g2log;
 
-void print_wakeup_reason()
-{
-  esp_sleep_wakeup_cause_t wakeup_reason;
 
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  switch (wakeup_reason)
-  {
-    case ESP_SLEEP_WAKEUP_EXT0:
-      Serial.println("Wakeup caused by external signal using RTC_IO");
-      break;
-    case ESP_SLEEP_WAKEUP_EXT1:
-      Serial.println("Wakeup caused by external signal using RTC_CNTL");
-      break;
-    case ESP_SLEEP_WAKEUP_TIMER:
-      Serial.println("Wakeup caused by timer");
-      break;
-    case ESP_SLEEP_WAKEUP_TOUCHPAD:
-      Serial.println("Wakeup caused by touchpad");
-      break;
-    case ESP_SLEEP_WAKEUP_ULP:
-      Serial.println("Wakeup caused by ULP program");
-      break;
-    default:
-      Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
-      break;
-  }
-}
 
 void log_display(String s)
 {
@@ -260,7 +242,6 @@ int get_max_insolation_angle(void)
 
     myservo.write(d);
     delay(100);
-
     RawValue = analogRead(ADC32);
     if (RawValue > max_value)
     {
@@ -307,24 +288,30 @@ void find_the_sun(void)
 void setup()
 {
   Serial.begin(115200);
-  delay(200); // give me times to bring up serial monitor
+  delay(1000); 
+  preferences.begin("config", false);                     // NVS Flash RW mode
+  preferences.getString("uptime", lastword, sizeof (lastword));
+  Serial.println("Uptime old: " + String(lastword) );
+   
+  
+                                              // give me times to bring up serial monitor
 
   print_wakeup_reason();
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) +
                  " Seconds");
 
-  setup_display();  
+  setup_display();
   setup_wifi();
-  
+
 #ifdef mqtt_on
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 #endif
 
-  // Show System Status  
+  // Show System Status
   delay(5000);
-  
+
   // Start App
   runmode = 1;
   draw("Moving solar panel", SUN, 0);
@@ -336,6 +323,12 @@ void setup()
 void loop()
 {
 
+  i++;
+
+
+  //-----------------------------------------------------
+  // Mqtt handler
+  //-----------------------------------------------------
 #ifdef mqtt_on
   // MQTT Connection
   if (!client.connected())
@@ -345,7 +338,10 @@ void loop()
   client.loop();
 #endif
 
-  // ADC Ports
+
+  //-----------------------------------------------------
+  // ADC
+  //-----------------------------------------------------
   ADC_pin32.tick(ArbitrationToken1);
   ADC_pin33.tick(ArbitrationToken1);
 
@@ -368,26 +364,31 @@ void loop()
     {
       drawRawValue(SUN, PanelPosition, ADC_pin32.counts );
     }
-
-
   }
 
-  //timeClient.update();
-  //Serial.println(timeClient.getFormattedTime());
+  //-----------------------------------------------------
+  // Time from internet Clock
+  //-----------------------------------------------------
+  timeClient.update();
+  Serial.println(timeClient.getFormattedTime());
 
   //draw( timeClient.getFormattedTime().c_str() , SUN, i);
-  i++;
-  //Serial.print("loop= "); Serial.println(i);
-  //Serial.print("ADC32  = "); Serial.println( analogRead(ADC32));
 
+  //-----------------------------------------------------
+  // Deep sleep
+  //-----------------------------------------------------
 #ifdef ESP_SLEEP_ON
   if (i > 5)
   {
     Serial.println("Going to sleep now");
-    delay(1000);
+    preferences.putString("uptime", "Hallo");
+    drawRawValue(SLEEP,1,1);    
     Serial.flush();
     esp_deep_sleep_start();
     Serial.println("This will never be printed");
+
+ 
+    
   }
 #endif
 }
