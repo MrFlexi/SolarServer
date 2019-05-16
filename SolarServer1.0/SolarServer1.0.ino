@@ -7,8 +7,8 @@
   MJRoBot.org 6Sept17
 *****************************************************/
 
-#define mqtt_off      // activate MQTT integration with mqtt_on
-#define ESP_SLEEP_ON // activate low enery sleep with ESP_SLEEP_ON
+#define mqtt_on      // activate MQTT integration with mqtt_on
+#define ESP_SLEEP_OFF // activate low enery sleep with ESP_SLEEP_ON
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -55,7 +55,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200); // 7200 = + 2h
 const char *ssid = "MrFlexi";
 const char *password = "Linde-123";
 //const char *mqtt_server = "192.168.1.144"; // Laptop
-const char* mqtt_server = "broker.hivemq.com";   // Laptop
+const char* mqtt_server = "test.mosquitto.org";   // Laptop
 const char *mqtt_topic = "mrflexi/solarserver/";
 
 int i = 0;
@@ -307,6 +307,9 @@ void setup()
 #ifdef mqtt_on
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+  log_display("Mqtt coneccted");
+  client.publish("mrflexi/solarserver/info", "ESP32 is alive...");
+  
 #endif
 
   // Show System Status
@@ -370,7 +373,7 @@ void loop()
   // Time from internet Clock
   //-----------------------------------------------------
   timeClient.update();
-  Serial.println(timeClient.getFormattedTime());
+  //Serial.println(timeClient.getFormattedTime());
 
   //draw( timeClient.getFormattedTime().c_str() , SUN, i);
 
