@@ -305,7 +305,14 @@ void setup()
 #ifdef mqtt_on
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-  log_display("Mqtt coneccted");
+  
+
+  if (!client.connected())
+  {
+    reconnect();
+  }
+
+  log_display("Mqtt connected");
   client.publish("mrflexi/solarserver/info", "ESP32 is alive...");
   
 #endif
