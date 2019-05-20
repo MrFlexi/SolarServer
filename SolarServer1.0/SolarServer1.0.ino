@@ -1,5 +1,3 @@
-
-
 /******************************************************
   Solar Server 1.0
   Analog Input:
@@ -54,8 +52,8 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200); // 7200 = + 2h
 
 const char *ssid = "MrFlexi";
 const char *password = "Linde-123";
-const char *mqtt_server = "192.168.1.144"; // Laptop
-//const char *mqtt_server = "test.mosquitto.org";   // Laptop
+//const char *mqtt_server = "192.168.1.144"; // Laptop
+const char* mqtt_server = "test.mosquitto.org";   // Laptop
 const char *mqtt_topic = "mrflexi/solarserver/";
 
 int i = 0;
@@ -203,16 +201,16 @@ void mqtt_send_position(int voltage, int angle)
 {
 
   doc["sensor"] = "panel";
-  doc["angle"] = angle;
-  doc["value"] = voltage;
+  doc["angle"] = String(angle);
+  doc["value"] = String(voltage);
 
-  //JsonArray data = doc.createNestedArray("data");
-  //data.add(48.756080);
-  //data.add(2.302038);
+  JsonArray data = doc.createNestedArray("data");
+  data.add(48.756080);
+  data.add(2.302038);
 
   serializeJson(doc, msg);
 
-  client.publish("mrflexi/solarserver/scanresults", msg);
+  client.publish("mrflexi/solarserver/all", msg);
   Serial.print("Publish message: ");
   Serial.println(msg);
 }
@@ -307,14 +305,7 @@ void setup()
 #ifdef mqtt_on
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-
-  // MQTT Connection
-  if (!client.connected())
-  {
-    reconnect();
-  }
-  log_display("Mqtt: ON");
-  delay(100);
+  log_display("Mqtt coneccted");
   client.publish("mrflexi/solarserver/info", "ESP32 is alive...");
   
 #endif
