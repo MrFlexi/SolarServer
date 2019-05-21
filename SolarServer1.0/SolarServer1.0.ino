@@ -44,12 +44,10 @@ unsigned long uptime_seconds_actual;
 #define uS_TO_S_FACTOR 1000000 /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP 60       // sleep for 1 minute
 
-
 //--------------------------------------------------------------------------
 // Ticker
 //--------------------------------------------------------------------------
 Ticker tickerSaveUptime;
-
 
 //--------------------------------------------------------------------------
 // get time from internet
@@ -226,14 +224,12 @@ void mqtt_send_position(int voltage, int angle)
 
 #endif
 
-
 void save_uptime()
 {
   uptime_seconds_new = uptime_seconds_old + uptime_seconds_actual;
   preferences.putULong("uptime", uptime_seconds_new);
   Serial.println("ESP32 total uptime" + String(uptime_seconds_new) + " Seconds");
 }
-
 
 void setup_display(void)
 {
@@ -319,11 +315,11 @@ void setup()
   Serial.println("Uptime old: " + String(uptime_seconds_old));
   preferences.getString("info", lastword, sizeof(lastword));
 
-//---------------------------------------------------------------
-  // Ticket register functions
   //---------------------------------------------------------------
-  
-  tickerSaveUptime.attach_ms(10000, save_uptime );
+  // Ticket register callback functions
+  //---------------------------------------------------------------
+
+  tickerSaveUptime.attach_ms(60000, save_uptime); // every Minute
 
   //---------------------------------------------------------------
   // Deep sleep settings
@@ -419,7 +415,7 @@ void loop()
   {
     Serial.println("Going to sleep now");
     preferences.putString("info", "Hallo");
-    
+
     drawRawValue(SLEEP, 1, 1);
     Serial.flush();
     esp_deep_sleep_start();
