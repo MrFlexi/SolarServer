@@ -5,7 +5,7 @@
   MJRoBot.org 6Sept17
 *****************************************************/
 
-#define mqtt_on      // activate MQTT integration with mqtt_on
+#define mqtt_on       // activate MQTT integration with mqtt_on
 #define ESP_SLEEP_OFF // activate low enery sleep with ESP_SLEEP_ON
 
 #include <Arduino.h>
@@ -20,11 +20,11 @@
 #include <NTPClient.h> // Internet Time Server
 #include <WiFiUdp.h>
 #include <Preferences.h>
+#include <Ticker.h>
 
 #ifdef mqtt_on
 #include <PubSubClient.h>
 #endif
-
 
 //--------------------------------------------------------------------------
 // Store preferences in NVS Flash
@@ -37,13 +37,19 @@ unsigned long uptime_seconds_old;
 unsigned long uptime_seconds_new;
 unsigned long uptime_seconds_actual;
 
-
 //--------------------------------------------------------------------------
 // ESP Sleep Mode
 //--------------------------------------------------------------------------
 
 #define uS_TO_S_FACTOR 1000000 /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP 60       // sleep for 1 minute
+
+
+//--------------------------------------------------------------------------
+// Ticker
+//--------------------------------------------------------------------------
+Ticker tickerSaveUptime;
+
 
 //--------------------------------------------------------------------------
 // get time from internet
@@ -58,7 +64,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200); // 7200 = + 2h
 const char *ssid = "MrFlexi";
 const char *password = "Linde-123";
 //const char *mqtt_server = "192.168.1.144"; // Laptop
-const char* mqtt_server = "test.mosquitto.org";   // Laptop
+const char *mqtt_server = "test.mosquitto.org"; // Laptop
 const char *mqtt_topic = "mrflexi/solarserver/";
 
 int i = 0;
@@ -72,7 +78,6 @@ char msg[200];
 String str = "";
 String str1 = "";
 String str2 = "";
-
 
 WiFiClient espClient;
 
@@ -118,12 +123,11 @@ uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 // Create a U8g2log object
 U8G2LOG u8g2log;
 
-
-
 void log_display(String s)
 {
   Serial.println(s);
-  if (runmode < 1 ) {
+  if (runmode < 1)
+  {
     u8g2log.print(s);
     u8g2log.print("\n");
   }
@@ -222,16 +226,27 @@ void mqtt_send_position(int voltage, int angle)
 
 #endif
 
+
+void save_uptime()
+{
+  uptime_seconds_new = uptime_seconds_old + uptime_seconds_actual;
+  preferences.putULong("uptime", uptime_seconds_new);
+  Serial.println("ESP32 total uptime" + String(uptime_seconds_new) + " Seconds");
+}
+
+
 void setup_display(void)
 {
   u8g2.begin();
-  u8g2.setFont(u8g2_font_profont11_mf);  // set the font for the terminal window
+  u8g2.setFont(u8g2_font_profont11_mf);                         // set the font for the terminal window
   u8g2log.begin(u8g2, U8LOG_WIDTH, U8LOG_HEIGHT, u8log_buffer); // connect to u8g2, assign buffer
   u8g2log.setLineHeightOffset(0);                               // set extra space between lines in pixel, this can be negative
   u8g2log.setRedrawMode(0);                                     // 0: Update screen with newline, 1: Update screen for every char
   u8g2.enableUTF8Print();
-  u8g2log.print("Display loaded..."); u8g2log.print("\n");
-  u8g2log.print("Terminal mode"); u8g2log.print("\n");
+  u8g2log.print("Display loaded...");
+  u8g2log.print("\n");
+  u8g2log.print("Terminal mode");
+  u8g2log.print("\n");
 }
 
 int get_max_insolation_angle(void)
@@ -256,13 +271,16 @@ int get_max_insolation_angle(void)
     Serial.print(d);
     Serial.print("  Value: ");
     Serial.println(RawValue);
-    drawRawValue(SUN, d, RawValue );
+    drawRawValue(SUN, d, RawValue);
 
 #ifdef mqtt_on
     mqtt_send_position(RawValue, d);
 #endif
   }
-  Serial.print("Best Pos: "); Serial.print(max_angle); Serial.print("  Value: "); Serial.println(max_value);
+  Serial.print("Best Pos: ");
+  Serial.print(max_angle);
+  Serial.print("  Value: ");
+  Serial.println(max_value);
   return max_angle;
 }
 
@@ -291,24 +309,28 @@ void find_the_sun(void)
 void setup()
 {
   Serial.begin(115200);
-  delay(1000); 
+  delay(1000);
 
-//---------------------------------------------------------------
+  //---------------------------------------------------------------
   // Get preferences from Flash
   //---------------------------------------------------------------
-
-  preferences.begin("config", false);                     // NVS Flash RW mode
+  preferences.begin("config", false); // NVS Flash RW mode
   preferences.getULong("uptime", uptime_seconds_old);
-  Serial.println("Uptime old: " + String(uptime_seconds_old) );
-  preferences.getString("info", lastword, sizeof (lastword));
+  Serial.println("Uptime old: " + String(uptime_seconds_old));
+  preferences.getString("info", lastword, sizeof(lastword));
 
-   
+//---------------------------------------------------------------
+  // Ticket register functions
+  //---------------------------------------------------------------
   
-                                              // give me times to bring up serial monitor
+  tickerSaveUptime.attach_ms(10000, save_uptime );
 
+  //---------------------------------------------------------------
+  // Deep sleep settings
+  //---------------------------------------------------------------
   print_wakeup_reason();
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-  Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) +
+  Serial.println("Setup ESP32 to wake-up via timer after " + String(TIME_TO_SLEEP) +
                  " Seconds");
 
   setup_display();
@@ -317,7 +339,6 @@ void setup()
 #ifdef mqtt_on
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-  
 
   if (!client.connected())
   {
@@ -326,7 +347,7 @@ void setup()
 
   log_display("Mqtt connected");
   client.publish("mrflexi/solarserver/info", "ESP32 is alive...");
-  
+
 #endif
 
   // Show System Status
@@ -338,12 +359,10 @@ void setup()
   find_the_sun();
 }
 
-
-
 void loop()
 {
   i++;
-  uptime_seconds_actual = millis()/1000;
+  uptime_seconds_actual = millis() / 1000;
 
   //-----------------------------------------------------
   // Mqtt handler
@@ -356,7 +375,6 @@ void loop()
   }
   client.loop();
 #endif
-
 
   //-----------------------------------------------------
   // ADC
@@ -375,13 +393,13 @@ void loop()
     Voltage = GetVoltage(ADC_pin32.counts);
     Serial.println(Voltage);
 
-    if (ADC_pin32.counts < 2500 )
+    if (ADC_pin32.counts < 2500)
     {
-      drawRawValue(RAIN, PanelPosition, ADC_pin32.counts );
+      drawRawValue(RAIN, PanelPosition, ADC_pin32.counts);
     }
     else
     {
-      drawRawValue(SUN, PanelPosition, ADC_pin32.counts );
+      drawRawValue(SUN, PanelPosition, ADC_pin32.counts);
     }
   }
 
@@ -389,7 +407,7 @@ void loop()
   // Time from internet Clock
   //-----------------------------------------------------
   timeClient.update();
-  //Serial.println(timeClient.getFormattedTime());
+  Serial.println(timeClient.getFormattedTime());
 
   //draw( timeClient.getFormattedTime().c_str() , SUN, i);
 
@@ -401,16 +419,11 @@ void loop()
   {
     Serial.println("Going to sleep now");
     preferences.putString("info", "Hallo");
-    uptime_seconds_new = uptime_seconds_old + uptime_seconds_actual;
-    preferences.putULong("uptime", uptime_seconds_new );
-    Serial.println("ESP32 total uptime" + String(uptime_seconds_new) + " Seconds");
-    drawRawValue(SLEEP,1,1);    
+    
+    drawRawValue(SLEEP, 1, 1);
     Serial.flush();
     esp_deep_sleep_start();
     Serial.println("This will never be printed");
-
- 
-    
   }
 #endif
 }
