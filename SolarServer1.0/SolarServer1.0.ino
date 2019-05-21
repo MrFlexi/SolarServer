@@ -33,6 +33,11 @@ Preferences preferences;
 
 char lastword[10];
 
+unsigned long uptime_seconds_old;
+unsigned long uptime_seconds_new;
+unsigned long uptime_seconds_actual;
+
+
 //--------------------------------------------------------------------------
 // ESP Sleep Mode
 //--------------------------------------------------------------------------
@@ -287,9 +292,16 @@ void setup()
 {
   Serial.begin(115200);
   delay(1000); 
+
+//---------------------------------------------------------------
+  // Get preferences from Flash
+  //---------------------------------------------------------------
+
   preferences.begin("config", false);                     // NVS Flash RW mode
-  preferences.getString("uptime", lastword, sizeof (lastword));
-  Serial.println("Uptime old: " + String(lastword) );
+  preferences.getULong("uptime", uptime_seconds_old);
+  Serial.println("Uptime old: " + String(uptime_seconds_old) );
+  preferences.getString("info", lastword, sizeof (lastword));
+
    
   
                                               // give me times to bring up serial monitor
@@ -330,9 +342,8 @@ void setup()
 
 void loop()
 {
-
   i++;
-
+  uptime_seconds_actual = millis()/1000;
 
   //-----------------------------------------------------
   // Mqtt handler
@@ -389,7 +400,10 @@ void loop()
   if (i > 5)
   {
     Serial.println("Going to sleep now");
-    preferences.putString("uptime", "Hallo");
+    preferences.putString("info", "Hallo");
+    uptime_seconds_new = uptime_seconds_old + uptime_seconds_actual;
+    preferences.putULong("uptime", uptime_seconds_new );
+    Serial.println("ESP32 total uptime" + String(uptime_seconds_new) + " Seconds");
     drawRawValue(SLEEP,1,1);    
     Serial.flush();
     esp_deep_sleep_start();
